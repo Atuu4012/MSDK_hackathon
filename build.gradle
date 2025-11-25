@@ -1,0 +1,29 @@
+buildscript {
+    repositories {
+        google()
+        jcenter()
+        mavenCentral()
+    }
+    dependencies {
+        // Suggested Android Gradle Plugin Version
+        classpath "com.android.tools.build:gradle:8.7.0"
+
+        //Suggested Kotlin version
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$KOTLIN_VERSION"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+        mavenCentral()
+        maven { url "https://sdk.dji.com/v5/maven" }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+apply from: 'dependencies.gradle'

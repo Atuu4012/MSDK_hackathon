@@ -1,0 +1,31 @@
+pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+// --- BLOC AJOUTÉ (INDISPENSABLE) ---
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral() // Le SDK DJI (version mondiale) et ONNX sont ici
+    }
+}
+// -----------------------------------
+
+rootProject.name = "MSDK_dji"
+include ':app'
+
+// Laissez cette ligne SEULEMENT si vous avez téléchargé et copié
+// le dossier "android-sdk-v5-uxsdk" dans votre projet.
+// Sinon, mettez-la en commentaire avec // devant.
+include ':android-sdk-v5-uxsdk'

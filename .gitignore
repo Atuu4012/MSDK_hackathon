@@ -1,0 +1,18 @@
+
+    # Built application files
+*.apk
+*.aab
+*.ap_
+*.a_
+
+    # Folders that should be ignored
+
+    # Solution encore meilleure
+**/build
+/capture_screen
+.cxx/
+local.properties
+.idea/workspace.xml
+.idea/libraries/
+.gradle
+.DS_Store
