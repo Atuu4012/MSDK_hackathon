@@ -16,3 +16,6 @@ local.properties
 .idea/libraries/
 .gradle
 .DS_Store
+
+
+*.onnx
