@@ -18,6 +18,11 @@ class YoloDetector(context: Context, modelName: String) {
     // Taille d'entrée du modèle (640x640 selon votre entrainement)
     private val INPUT_SIZE = 640
 
+    fun close() {
+        session.close()
+        env.close()
+    }
+
     fun detect(bitmap: Bitmap): Detection? {
         // 1. Redimensionner l'image
         val resizedBitmap = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, false)
@@ -59,7 +64,7 @@ class YoloDetector(context: Context, modelName: String) {
                 }
             }
 
-            if (maxClassScore > 0.5f && maxClassScore > bestScore) { // Seuil de confiance
+            if (maxClassScore > 0.3f && maxClassScore > bestScore) { // Seuil de confiance
                 bestScore = maxClassScore
                 bestClass = maxClassIdx
 

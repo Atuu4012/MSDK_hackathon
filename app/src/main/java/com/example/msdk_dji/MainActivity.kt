@@ -1,111 +1,94 @@
 package com.example.msdk_dji
 
+import android.graphics.Bitmap
+import android.graphics.RectF
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-
-// --- IMPORTS VIDÉO MSDK 5.17.0 ---
-import dji.v5.common.video.stream.StreamSource
-import dji.v5.manager.datacenter.MediaDataCenter
-import dji.v5.manager.interfaces.IVideoDecoder
-import dji.v5.manager.interfaces.IVideoDecoder.VideoFrameListener
-// ---------------------------------
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var yoloDetector: YoloDetector
-    private lateinit var droneController: DroneController
-    private lateinit var yuvConverter: YuvConverter
+    // Utilisation de 'by lazy' pour différer l'initialisation jusqu'à ce que 'this' (context) soit prêt
+    private val vehicleDetector by lazy { YoloDetector(this, "yolov8n_car.onnx") }
+    private val flawDetector by lazy { YoloDetector(this, "best_flaws.onnx") }
 
-    private var videoDecoder: IVideoDecoder? = null
-    private var isProcessingFrame = false
+    private val droneController = DroneController()
+    private val laserManager = LaserRangingManager()
 
-    // On garde une référence au listener pour pouvoir l'enlever proprement
-    private val frameListener = object : VideoFrameListener {
-        override fun onFrame(
-            yuvData: ByteArray,
-            width: Int,
-            height: Int,
-            format: IVideoDecoder.VideoFrameFormat
-        ) {
-            processVideoFrame(yuvData, width, height)
-        }
+    // La vue personnalisée qui affichera les carrés (doit être dans votre XML ou ajoutée dynamiquement)
+    //private lateinit var myOverlayView: OverlayView
+
+    // Mission Manager : initialisé aussi en lazy pour avoir accès aux détecteurs
+    private val missionManager by lazy {
+        MissionManager(
+            droneController,
+            laserManager,
+            vehicleDetector,
+            flawDetector,
+            onOverlayUpdate = { boxes, label ->
+                // Correction de la signature de la lambda : (boxes, label) -> Unit
+                runOnUiThread {
+                    // Vérifie si la vue est initialisée
+                    //if (::myOverlayView.isInitialized) {
+                    //    myOverlayView.updateBoundingBoxes(boxes, label)
+                    //}
+                }
+            }
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.activity_main) // Assurez-vous d'avoir un layout
 
-        initModules()
-        initDJIVideoListener()
-    }
-
-    private fun initModules() {
-        try {
-            yuvConverter = YuvConverter(this)
-            droneController = DroneController()
-            // Assurez-vous que best.onnx est bien dans app/src/main/assets/
-            yoloDetector = YoloDetector(this, "best.onnx")
-
-            Toast.makeText(this, "Système IA Prêt", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e("DJI_AI", "Erreur Init: ${e.message}")
-        }
-    }
-
-    private fun initDJIVideoListener() {
-        // Récupération du gestionnaire de flux
-        val streamManager = MediaDataCenter.getInstance().videoStreamManager
-
-        // On demande le décodeur pour la caméra principale (M30T = Zoom ou Wide selon config)
-        // Note: CAMERA_SOURCE_PRIMARY doit être importé de StreamSource
-        val source = StreamSource.CAMERA_SOURCE_PRIMARY
-
-        videoDecoder = streamManager.getAvailableVideoDecoder(source)
-
-        if (videoDecoder != null) {
-            // On ajoute le listener défini plus haut
-            videoDecoder?.addVideoFrameListener(frameListener)
-            Log.i("DJI_AI", "Ecoute vidéo démarrée")
-        } else {
-            Log.e("DJI_AI", "Décodeur vidéo indisponible (Drone connecté ?)")
-        }
-    }
-
-    private fun processVideoFrame(yuvData: ByteArray, width: Int, height: Int) {
-        if (isProcessingFrame) return
-        isProcessingFrame = true
-
-        CoroutineScope(Dispatchers.Default).launch {
-            try {
-                // Conversion YUV -> Bitmap
-                val bitmap = yuvConverter.yuvToBitmap(yuvData, width, height)
-
-                if (bitmap != null) {
-                    // Inférence YOLO
-                    val result = yoloDetector.detect(bitmap)
-
-                    if (result != null) {
-                        Log.d("DJI_AI", "Détection : ${result.score}")
-                        // Pilotage
-                        droneController.trackAndMeasure(result.box, width, height)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("DJI_AI", "Erreur processing: ${e.message}")
-            } finally {
-                isProcessingFrame = false
-            }
-        }
+        // Initialisation de la vue (remplacez R.id.overlay_view par votre ID réel)
+        // Si vous n'avez pas encore créé la vue dans le XML, créez-la dynamiquement :
+        /*
+        myOverlayView = findViewById(R.id.overlay_view)
+        */
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Nettoyage propre du listener
-        videoDecoder?.removeVideoFrameListener(frameListener)
+        vehicleDetector.close()
+        flawDetector.close()
+        droneController.release()
+        laserManager.release()
     }
+
+    // Dans MainActivity
+
+    // Nouveau détecteur pour la piste
+    private val padDetector by lazy { YoloDetector(this, "landing_pad.onnx") }
+
+    private val landingManager by lazy {
+        LandingMissionManager(
+            droneController,
+            laserManager,
+            padDetector,
+            onOverlayUpdate = { boxes, label ->
+                // Code complet de mise à jour de l'interface
+                runOnUiThread {
+                    // Vérifie que la vue est bien initialisée avant d'appeler
+                    if (::myOverlayView.isInitialized) {
+                        myOverlayView.updateBoundingBoxes(boxes, label)
+                    }
+                }
+            }
+        )
+    }
+
+    // Bouton pour lancer l'atterrissage
+    fun startLandingMission() {
+        // On change le callback vidéo pour diriger vers le LandingManager
+        currentMission = "LANDING"
+    }
+
+    fun onVideoFrameArrived(bitmap: Bitmap) {
+        if (currentMission == "INSPECTION") {
+            missionManager.processFrame(bitmap)
+        } else if (currentMission == "LANDING") {
+            landingManager.processFrame(bitmap)
+        }
+    }
+
 }
