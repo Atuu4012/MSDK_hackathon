@@ -9,7 +9,6 @@ import dji.v5.manager.KeyManager
 class LaserRangingManager {
 
     private val TAG = "LaserRangingManager"
-
     // Pas de setup d'évitement nécessaire ici, on laisse le drone gérer ses capteurs par défaut.
 
     /**
@@ -24,7 +23,6 @@ class LaserRangingManager {
                 CameraKey.KeyLaserMeasureInformation,
                 ComponentIndexType.LEFT_OR_MAIN
             )
-
             val laserInfo = KeyManager.getInstance().getValue(laserKey)
 
             if (laserInfo != null && laserInfo.distance > 0) {
